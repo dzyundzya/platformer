@@ -1,6 +1,7 @@
 import pygame
 import sys
 import os
+import pygame.freetype
 
 
 """Перменные
@@ -20,12 +21,23 @@ world = pygame.display.set_mode([worldx, worldy])
 # Цвет хитбокса.
 ALPHA = (156, 156, 156)
 
+# Цвет шрифта.
+BLACK = (0, 0, 0)
+GOLD = (255, 215, 0)
+GREEN_YELLOW = (173, 255, 47)
+
 forwardx = 600
 backwardx = 230
 
 
 """Объекты
 """
+
+
+# Отоброжение текста.
+def stats(score, health):
+    myfont.render_to(world, (4, 4), 'Score:' + str(score), GOLD, None, size=36)
+    myfont.render_to(world, (4, 72), 'Health:' + str(health), GREEN_YELLOW, None, size=40)
 
 
 # x location, y location, img width, img height, img file
@@ -57,6 +69,7 @@ class Player(pygame.sprite.Sprite):
         self.frame = 0  # Подсчет кадров.
         self.health = 10
         self.score = 0
+        self.damage = 0
         # Код прыжка.
         self.is_jumping = True
         self.is_falling = False
@@ -112,9 +125,17 @@ class Player(pygame.sprite.Sprite):
 
         # Урон от врага.
         enemy_hit_list = pygame.sprite.spritecollide(self, enemy_list, False)
-        for enemy in enemy_hit_list:
-            self.health -= 1
-            print(self.health)
+        if self.damage == 0:
+            for enemy in enemy_hit_list:
+                if not self.rect.contains(enemy):
+                    self.damage = self.rect.colliderect(enemy)
+        
+        if self.damage == 1:
+            idx = self.rect.collidelist(enemy_hit_list)
+            if idx == -1:
+                self.damage = 0
+                self.health -= 1
+
 
         # Столкновение с землей.
         ground_hit_list = pygame.sprite.spritecollide(self, ground_list, False)
@@ -146,6 +167,11 @@ class Player(pygame.sprite.Sprite):
                 self.rect.bottom = p.rect.top
             else:
                 self.movey += 3.2
+        
+        health_hit_list = pygame.sprite.spritecollide(self, health_list, False)
+        for health in health_hit_list:
+            health_list.remove(health)
+            self.health += 5
 
         # Взлет при начале прыжка.
         if self.is_jumping and self.is_falling is False:
@@ -230,6 +256,7 @@ class Level:
             ploc.append((200, worldy - ty - 194, 2))  # Нижняя 1
             ploc.append((300, worldy - ty - 384, 3))  # Верхняя
             ploc.append((600, worldy - ty - 194, 3))  # Нижняя 2
+            ploc.append((1500, worldy - ty - 194, 3))
             while i < len(ploc):
                 j = 0
                 while j <= ploc[i][2]:
@@ -250,9 +277,22 @@ class Level:
             loot_list = pygame.sprite.Group()
             loot = Platform(450, 200, tx, ty, 'coin.png')
             loot_list.add(loot)
+            loot = Platform(500, 200, tx, ty, 'coin.png')
+            loot_list.add(loot)
+            loot = Platform(650, 400, tx, ty, 'coin.png')
+            loot_list.add(loot)
         if lvl == 2:
             print(lvl)
         return loot_list
+
+    def health(lvl):
+        if lvl == 1:
+            health_list = pygame.sprite.Group()
+            health5 = Platform(1600, 400, tx, ty, 'health5.png')
+            health_list.add(health5)
+        if lvl == 2:
+            print(lvl)
+        return health_list
 
 
 """Настройка
@@ -299,6 +339,14 @@ plat_list = Level.platform(1, tx, ty)
 # Вызов монетки
 loot_list = Level.loot(1)
 
+health_list = Level.health(1)
+
+
+# Использование шрифта.
+font_path = os.path.join(os.path.dirname(__file__), 'fonts', 'spydi.ttf')
+font_size = tx
+pygame.freetype.init()
+myfont = pygame.freetype.Font(font_path, font_size)
 
 """Главный цикл
 """
@@ -343,6 +391,8 @@ while main:
             e.rect.x -= scroll  # Прокрутка врага.
         for l in loot_list:
             l.rect.x -= scroll  # Прокрутка предмета
+        for h in health_list:
+            h.rect.x -= scroll
 
     # Прокрутка игровой сцены в обратном направлении.
     if player.rect.x <= backwardx:
@@ -354,16 +404,22 @@ while main:
             e.rect.x += scroll
         for l in loot_list:
             l.rect.x += scroll
+        for h in health_list:
+            h.rect.x += scroll
 
     world.blit(backdrop, backdropbox)
     player.update()  # Обновляет положение персонажа.
     player.gravity()  # Проверка гравитации.
     player_list.draw(world)  # Нарисовать игрока.
-    enemy_list.draw(world)  # Обновить врагов
-    ground_list.draw(world)  # Обновить землю
-    plat_list.draw(world)  # Обновить платформы
-    loot_list.draw(world)
+    enemy_list.draw(world)  # Обновить врагов.
+    ground_list.draw(world)  # Обновить землю.
+    plat_list.draw(world)  # Обновить платформы.
+    loot_list.draw(world)  # Обновляетя монетку.
     for e in enemy_list:
         e.move()
+    health_list.draw(world)
+    stats(player.score, player.health)
     pygame.display.flip()
     clock.tick(fps)
+
+
