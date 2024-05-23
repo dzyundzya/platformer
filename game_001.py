@@ -257,6 +257,8 @@ class Level:
             ploc.append((300, worldy - ty - 384, 3))  # Верхняя
             ploc.append((600, worldy - ty - 194, 3))  # Нижняя 2
             ploc.append((1500, worldy - ty - 194, 3))
+            ploc.append((-500, worldy - ty - 194, 3))
+            ploc.append((-700, worldy - ty - 384, 3))
             while i < len(ploc):
                 j = 0
                 while j <= ploc[i][2]:
@@ -281,6 +283,8 @@ class Level:
             loot_list.add(loot)
             loot = Platform(650, 400, tx, ty, 'coin.png')
             loot_list.add(loot)
+            loot = Platform(200, 400, tx, ty, 'coin.png')
+            loot_list.add(loot)
         if lvl == 2:
             print(lvl)
         return loot_list
@@ -288,11 +292,41 @@ class Level:
     def health(lvl):
         if lvl == 1:
             health_list = pygame.sprite.Group()
-            health5 = Platform(1600, 400, tx, ty, 'health5.png')
-            health_list.add(health5)
+            health_5 = Platform(1600, 400, tx, ty, 'health5.png')
+            health_list.add(health_5)
+            health_5 = Platform(-400, 400, tx, ty, 'health5.png')
+            health_list.add(health_5)
         if lvl == 2:
             print(lvl)
         return health_list
+
+
+class Throwable(pygame.sprite.Sprite):
+    """Созадание объекта для метания
+    """
+
+    def __init__(self, x, y, img, throw):
+        pygame.sprite.Sprite.__init__(self)
+        self.image = pygame.image.load(os.path.join('images', img))
+        self.image.convert_alpha()
+        self.image.set_colorkey(ALPHA)
+        self.rect = self.image.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+        self.firing = throw
+
+    def update(self, worldy):
+        """Физика метания
+        """
+
+        if self.rect.y < worldy:  # Вертикальная ось.
+            self.rect.x += 15  # Как быстр ообъект будет перемещаться вперед.
+            self.rect.y += 5  # С какой скоростью объект падает.
+        else:
+            self.kill()  # Удаление объекта.
+            self.firing = 0  # Освободить слот для стрельбы.
+
+
 
 
 """Настройка
@@ -316,6 +350,9 @@ player.rect.y = 600
 player_list = pygame.sprite.Group()
 player_list.add(player)
 steps = 10  # Количество пикселей для перемещения.
+
+fire = Throwable(player.rect.x, player.rect.y, 'fire.png', 0)
+firepower = pygame.sprite.Group()
 
 # Создание врага-летучая мышь.
 eloc = []
@@ -374,6 +411,11 @@ while main:
                 player.control(steps, 0)
             if event.key == pygame.K_UP or event.key == ord('w'):
                 player.jump()
+            if event.key == pygame.K_SPACE:
+                if not fire.firing:
+                    fire = Throwable(player.rect.x, player.rect.y, 'fire.png', 1)
+                    firepower.add(fire)
+            
 
         if event.type == pygame.KEYUP:
             if event.key == pygame.K_LEFT or event.key == ord('a'):
@@ -411,12 +453,16 @@ while main:
     player.update()  # Обновляет положение персонажа.
     player.gravity()  # Проверка гравитации.
     player_list.draw(world)  # Нарисовать игрока.
+    if fire.firing:
+        fire.update(worldy)
+        firepower.draw(world)
     enemy_list.draw(world)  # Обновить врагов.
     ground_list.draw(world)  # Обновить землю.
     plat_list.draw(world)  # Обновить платформы.
     loot_list.draw(world)  # Обновляетя монетку.
     for e in enemy_list:
         e.move()
+    
     health_list.draw(world)
     stats(player.score, player.health)
     pygame.display.flip()
